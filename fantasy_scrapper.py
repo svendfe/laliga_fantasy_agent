@@ -150,7 +150,7 @@ class FantasyScraper:
         """Parse percentage from text and return as float (0-1)."""
         match = re.search(r'(\d+(?:\.\d+)?)\s*%', text)
         if not match:
-            return None
+            return 0
         return float(match.group(1)) / 100.0
     
     def _clean_old_cache_files(self, current_date: str):
@@ -177,7 +177,7 @@ class FantasyScraper:
 
 
 def main():
-    scraper = FantasyScraper("raul-asencio-1")
+    scraper = FantasyScraper("fernando-calero")
     player_info = scraper.get_player_info()
     print(json.dumps(player_info, indent=2, ensure_ascii=False))
 
