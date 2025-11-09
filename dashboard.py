@@ -6,8 +6,10 @@ Live analysis and transfer recommendations for your fantasy team
 import streamlit as st
 import pandas as pd
 from typing import Dict, List, Tuple, Optional
+from pathlib import Path
 
-from fantasy_agent import FantasyAgent
+# Import from the new package
+from laliga_fantasy_agent.fantasy_agent import FantasyAgent
 
 
 # ============================================================================
@@ -44,7 +46,8 @@ def load_agent_data(
         Tuple of (team_summary, team_data, fixtures_data, transfer_data)
     """
     try:
-        agent = FantasyAgent(data_dir=".")
+        # Point the agent to the 'data' directory
+        agent = FantasyAgent(data_dir="data")
         
         team_summary = agent.initialize(
             team_name=team_name,
@@ -286,21 +289,25 @@ def render_transfer_suggestions(transfer_data: List[Dict]):
 # ERROR HANDLING
 # ============================================================================
 
-def handle_missing_file_error(filename: str):
+def handle_missing_file_error(e: FileNotFoundError):
     """Display error message for missing files"""
+    filename = e.filename if e.filename else "config/name_mapping.json"
+    
     st.error(f"❌ Missing file: {filename}")
     st.info(
-        f"Please ensure '{filename}' is in the same directory as this dashboard."
+        f"Please ensure '{filename}' is in the correct directory."
     )
     
-    if filename == "name_mapping.json":
-        st.info("You can create an empty mapping file with: {}")
+    if "name_mapping.json" in str(filename):
+        st.info("You can create an empty mapping file in 'config/' with: {}")
         
-        if st.button("Create empty name_mapping.json"):
+        if st.button("Create empty config/name_mapping.json"):
             import json
-            with open("name_mapping.json", "w") as f:
+            config_path = Path("config")
+            config_path.mkdir(exist_ok=True)
+            with open(config_path / "name_mapping.json", "w") as f:
                 json.dump({}, f)
-            st.success("✅ Created empty name_mapping.json. Refresh the page.")
+            st.success("✅ Created empty config/name_mapping.json. Refresh the page.")
 
 
 def handle_data_load_error():
@@ -310,7 +317,7 @@ def handle_data_load_error():
         "Make sure you've run `download_pipeline.py` to fetch the latest data."
     )
     st.info(
-        "Check that /equipos, /players, and /market directories contain recent JSON files."
+        "Check that 'data/' subdirectories (equipos, players, market) contain recent JSON files."
     )
 
 
@@ -327,7 +334,7 @@ def main():
     try:
         team_summary, team_data, fixtures_data, transfer_data = load_agent_data()
     except FileNotFoundError as e:
-        handle_missing_file_error(e.filename)
+        handle_missing_file_error(e)
         st.stop()     
     except Exception as e:
         st.error(f"❌ Unexpected error: {e}")

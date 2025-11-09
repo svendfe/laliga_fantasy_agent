@@ -10,7 +10,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from functools import lru_cache
 
-import fantasy_scrapper
+# Updated to import from the package
+from . import fantasy_scrapper
+# This import assumes download_pipeline.py is still run from the root
 from download_pipeline import main as data_downloader
 
 
@@ -129,19 +131,15 @@ class Player:
     POSITION_NAMES = {1: "GK", 2: "DF", 3: "MF", 4: "FW", 5: "COACH"}
     
     def get_slug(self) -> str:
-        """Generate URL-friendly slug from player name"""
+        """
+        Generate URL-friendly slug from player name.
+        NOTE: This is a fallback. The ScraperManager should be the
+        primary source of slug generation as it has the mapping file.
+        """
         if self._slug:
             return self._slug
             
-        try:
-            mapper = PlayerMapper("name_mapping.json")
-            full_name = mapper.get_real_name(self.nickname)
-        except FileNotFoundError:
-            print("⚠️  name_mapping.json not found. Using nickname fallback.")
-            full_name = self.nickname
-            
-        if full_name is None:
-            full_name = self.nickname
+        full_name = self.nickname
             
         slug = (full_name.lower()
                 .replace(' ', '-')
@@ -261,10 +259,15 @@ class PlayerMapper:
 class ScraperManager:
     """Manages web scraping for player data"""
     
-    def __init__(self, cache_dir: str = "./scrapper"):
+    def __init__(self, cache_dir: str = "./scrapper_cache", mapping_path: str = "config/name_mapping.json"):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         self._failed_scrapes = set()
+        try:
+            self.mapper = PlayerMapper(mapping_path)
+        except FileNotFoundError:
+            print(f"⚠️  {mapping_path} not found. Slug generation will use fallbacks.")
+            self.mapper = None
     
     @lru_cache(maxsize=100)
     def get_player_data(self, player_slug: str) -> Optional[ScrapedPlayerData]:
@@ -294,13 +297,34 @@ class ScraperManager:
             print(f"⚠️  Failed to scrape {player_slug}: {str(e)}")
             self._failed_scrapes.add(player_slug)
             return None
-    
+
+    def _get_slug_for_player(self, player: Player) -> str:
+        """Generate URL-friendly slug from player name"""
+        if player._slug:
+            return player._slug
+        
+        full_name = player.nickname
+        if self.mapper:
+            mapped_name = self.mapper.get_real_name(player.nickname)
+            if mapped_name:
+                full_name = mapped_name
+        
+        slug = (full_name.lower()
+                .replace(' ', '-')
+                .replace('á', 'a').replace('é', 'e')
+                .replace('í', 'i').replace('ó', 'o')
+                .replace('ú', 'u').replace('ñ', 'n')
+                .replace('.', '').replace("'", ''))
+        
+        player._slug = slug
+        return slug
+
     def enrich_player(self, player: Player) -> Player:
         """Add scraped data to player object"""
         if player.position_id == 5:  # Skip coaches
             return player
             
-        slug = player.get_slug()
+        slug = self._get_slug_for_player(player)
         scraped = self.get_player_data(slug)
         
         if scraped:
@@ -344,8 +368,8 @@ class TeamEvaluator:
     def __init__(
         self, 
         current_week: int, 
-        evaluator_file: str = 'team_evaluator.json',
-        calendar_dir: str = './calendar'
+        evaluator_file: str = 'config/team_evaluator.json',
+        calendar_dir: str = 'data/calendar'
     ):
         """
         Initialize the team evaluator.
@@ -386,7 +410,7 @@ class TeamEvaluator:
         week_files = list(self.calendar_path.glob(f'week_{week}.json'))
         
         if not week_files:
-            print(f"⚠️  No file found for week {week}")
+            print(f"⚠️  No file found for week {week} in {self.calendar_path}")
             return None
         
         try:
@@ -555,7 +579,7 @@ class TeamEvaluator:
 class DataLoader:
     """Loads data from JSON files"""
     
-    def __init__(self, data_dir: str = "."):
+    def __init__(self, data_dir: str = "data"):
         self.data_dir = Path(data_dir)
         self.calendar_dir = self.data_dir / "calendar"
         self.equipos_dir = self.data_dir / "equipos"
@@ -571,7 +595,7 @@ class DataLoader:
         files = sorted(directory.glob(f"{prefix}*.json"), reverse=True)
         
         if not files:
-            print(f"⚠️  No files found matching: {prefix}")
+            print(f"⚠️  No files found matching: {prefix} in {directory}")
             return None
             
         latest = files[0]
@@ -597,7 +621,7 @@ class DataLoader:
         file_path = self.calendar_dir / f"week_{week}.json"
         
         if not file_path.exists():
-            print(f"⚠️  Calendar file not found: week_{week}.json")
+            print(f"⚠️  Calendar file not found: {file_path}")
             return []
             
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -768,7 +792,7 @@ class DataLoader:
         try:
             file_path = list(self.data_dir.glob("current_week.json"))[0]
         except IndexError:
-            print("⚠️  current_week.json not found. Defaulting to week 1.")
+            print(f"⚠️  {self.data_dir / 'current_week.json'} not found. Defaulting to week 1.")
             return 1
         
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -801,7 +825,7 @@ class TeamStrengthCalculator:
         'last_season': 0.1
     }
     
-    def __init__(self, evaluator_file: str = 'team_evaluator.json'):
+    def __init__(self, evaluator_file: str = 'config/team_evaluator.json'):
         """Initialize with evaluator data."""
         self.evaluator_file = Path(evaluator_file)
         self.evaluator_data = self._load_evaluator_data()
@@ -1023,7 +1047,7 @@ class FixtureAnalyzer:
         self,
         fixtures: List[Fixture],
         strength_calculator: Optional[TeamStrengthCalculator] = None,
-        evaluator_file: str = 'team_evaluator.json'
+        evaluator_file: str = 'config/team_evaluator.json'
     ):
         """
         Initialize fixture analyzer.
@@ -1460,18 +1484,22 @@ class PlayerEvaluator:
 class FantasyAgent:
     """Main agent for fantasy team analysis and recommendations"""
     
-    def __init__(self, data_dir: str = "."):
+    def __init__(self, data_dir: str = "data"):
         try:
             data_downloader()
         except:
             print("Failed to refresh data")
         self.loader = DataLoader(data_dir)
-        self.scraper_manager = ScraperManager()
+        self.scraper_manager = ScraperManager(
+            cache_dir="scrapper_cache",
+            mapping_path="config/name_mapping.json"
+        )
         self.current_week = -1
         self.my_team = None
         self.all_players = []
         self.fixture_analyzer = None
-        self.evaluator = None
+        self.team_evaluator = None # Renamed from 'evaluator' to avoid clash
+        self.player_evaluator = None # Renamed from 'evaluator'
     
     def initialize(
         self,
@@ -1487,12 +1515,12 @@ class FantasyAgent:
             self.my_team = self.loader.load_my_team(team_name)
         except Exception as e:
             print(f"❌ CRITICAL ERROR: {e}")
-            print("   Ensure JSON files exist in: /equipos, /players, /market")
+            print(f"   Ensure JSON files exist in: {self.loader.equipos_dir} /players, /market")
             print("   Run download_pipeline.py to fetch data.")
             return None
         
         if not self.my_team:
-            print("❌ Could not load team! Check 'equipos' directory.")
+            print(f"❌ Could not load team! Check '{self.loader.equipos_dir}' directory.")
             return None
         
         if enrich_current_team:
@@ -1501,9 +1529,23 @@ class FantasyAgent:
         
         self.all_players = self.loader.load_all_players()
         fixtures = self.loader.load_calendar(self.current_week)
-        TeamEvaluator(self.current_week).update()
-        self.fixture_analyzer = FixtureAnalyzer(fixtures)
-        self.evaluator = PlayerEvaluator(self.fixture_analyzer)
+        
+        # Initialize and update team evaluator
+        self.team_evaluator = TeamEvaluator(
+            self.current_week,
+            evaluator_file='config/team_evaluator.json',
+            calendar_dir=self.loader.calendar_dir
+        )
+        self.team_evaluator.update()
+        
+        # Initialize fixture analyzer
+        self.fixture_analyzer = FixtureAnalyzer(
+            fixtures,
+            evaluator_file='config/team_evaluator.json'
+        )
+        
+        # Initialize player evaluator
+        self.player_evaluator = PlayerEvaluator(self.fixture_analyzer)
         
         print("✅ Agent ready!")
         print("=" * 60)
@@ -1516,8 +1558,8 @@ class FantasyAgent:
     
     def analyze_current_team(self) -> List[Dict]:
         """Analyze current team performance"""
-        if not self.my_team:
-            print("❌ No team loaded")
+        if not self.my_team or not self.player_evaluator:
+            print("❌ No team loaded or evaluator not initialized")
             return []
         
         print("\n📊 Analyzing Team...")
@@ -1527,7 +1569,7 @@ class FantasyAgent:
             if player.position_id == 5:  # Skip coaches
                 continue
             
-            eval_result = self.evaluator.evaluate_player(player)
+            eval_result = self.player_evaluator.evaluate_player(player)
             
             # Extract scraped data safely
             scraped = player.scraped_data
@@ -1561,7 +1603,7 @@ class FantasyAgent:
         enrich_candidates: bool = True
     ) -> List[Dict]:
         """Generate transfer suggestions"""
-        if not self.my_team or not self.evaluator:
+        if not self.my_team or not self.player_evaluator:
             print("❌ Agent not initialized")
             return []
         
@@ -1583,7 +1625,7 @@ class FantasyAgent:
             self.scraper_manager.enrich_players_batch(top_candidates)
         
         # Get transfer suggestions
-        suggestions = self.evaluator.find_best_transfers(
+        suggestions = self.player_evaluator.find_best_transfers(
             self.my_team,
             self.all_players,
             budget,
@@ -1737,7 +1779,8 @@ class FantasyAgent:
 
 def main():
     """Main execution function"""
-    agent = FantasyAgent(data_dir=".")
+    # Updated to point to the new data directory
+    agent = FantasyAgent(data_dir="data")
     
     team_summary = agent.initialize(
         team_name="svendsinio",

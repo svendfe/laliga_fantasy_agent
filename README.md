@@ -1,4 +1,3 @@
-
 # La Liga Fantasy Agent 🤖
 
 A comprehensive fantasy football tool that provides live analysis, player scouting, and intelligent transfer recommendations for your La Liga fantasy team. This agent downloads data from the official API, enriches it with external scraping, and presents all findings in an easy-to-use Streamlit dashboard.
@@ -16,9 +15,9 @@ A comprehensive fantasy football tool that provides live analysis, player scouti
 
 The project is broken down into several key components:
 
-1.  **`download_pipeline.py`**: This script connects to the La Liga fantasy API using your credentials (from `.env`) to download and save the latest game data as JSON files (e.g., market, players, teams).
-2.  **`fantasy_scrapper.py`**: A web scraper that visits `futbolfantasy.com` for specific players to get qualitative metrics. It uses a local cache to avoid re-scraping data unnecessarily.
-3.  **`fantasy_agent.py`**: The core logic of the application. It loads all the JSON data, enriches player objects with the scraped data, evaluates every player using a sophisticated scoring system, and finally generates a list of the best possible transfers.
+1.  **`download_pipeline.py`**: This script connects to the La Liga fantasy API using your credentials (from `.env`) to download and save the latest game data as JSON files into the `data/` directory (e.g., market, players, teams).
+2.  **`laliga_fantasy_agent/fantasy_scrapper.py`**: A web scraper that visits `futbolfantasy.com` for specific players to get qualitative metrics. It uses a local cache in `scrapper_cache/` to avoid re-scraping data unnecessarily.
+3.  **`laliga_fantasy_agent/fantasy_agent.py`**: The core logic of the application. It loads all the JSON data from `data/` and configs from `config/`, enriches player objects with the scraped data, evaluates every player using a sophisticated scoring system, and finally generates a list of the best possible transfers.
 4.  **`dashboard.py`**: A Streamlit application that initializes the `FantasyAgent` and presents its findings in a user-friendly web interface with multiple tabs for team analysis, fixtures, and transfers.
 
 ## Setup & Installation
@@ -50,28 +49,41 @@ The project is broken down into several key components:
 
     ```ini
     # .env
-    TOKEN_URL="https://api.example.com/token"
+    TOKEN_URL="[https://api.example.com/token](https://api.example.com/token)"
     CLIENT_ID="your_client_id"
     REFRESH_TOKEN="your_refresh_token"
     ```
 
-5.  **Create `name_mapping.json` File**
-    The web scraper needs to map fantasy player nicknames (e.g., "Aarón") to their URL slugs on `futbolfantasy.com` (e.g., "aaron-escandell").
-    Create an empty `name_mapping.json` file to get started. The dashboard will show an error if this file is missing.
+5.  **Create Configuration Files**
+    The agent requires a mapping file and a team evaluation file. Create the `config/` directory and place them inside.
 
     ```bash
-    echo "{}" > name_mapping.json
+    mkdir config
     ```
+    
+    * **Create `config/name_mapping.json`**:
+        The web scraper needs to map fantasy player nicknames (e.g., "Aarón") to their URL slugs on `futbolfantasy.com` (e.g., "aaron-escandell"). Create an empty file to start:
 
-    You will need to manually add mappings for players the agent fails to scrape.
-    *Example:*
+        ```bash
+        echo "{}" > config/name_mapping.json
+        ```
 
-    ```json
-    {
-      "Pedri": "pedri-gonzalez",
-      "Bellingham": "jude-bellingham"
-    }
-    ```
+        You will need to manually add mappings for players the agent fails to scrape.
+        *Example:*
+
+        ```json
+        {
+          "Pedri": "pedri-gonzalez",
+          "Bellingham": "jude-bellingham"
+        }
+        ```
+    
+    * **Create `config/team_evaluator.json`**:
+        The agent will create and manage this file, but you can create an empty file with the basic structure:
+        
+        ```bash
+        echo "{\"last_loaded_week\": 0, \"season_overall\": {}, \"last_3_games\": {}, \"last_season\": {}}" > config/team_evaluator.json
+        ```
 
 ## Usage
 
@@ -85,53 +97,3 @@ Make it executable:
 
 ```bash
 chmod +x run.sh
-```
-
-Then run it:
-
-```bash
-./run.sh
-```
-
-### Option 2: Manual Execution
-
-1.  **Activate your environment:**
-
-    ```bash
-    conda activate fantasy-agent
-    ```
-
-2.  **Run the data pipeline:**
-    This must be done first to get the latest data.
-
-    ```bash
-    python download_pipeline.py
-    ```
-
-3.  **Run the Streamlit Dashboard:**
-
-    ```bash
-    streamlit run dashboard.py
-    ```
-
-Open your browser to the local Streamlit URL (usually `http://localhost:8501`) to view the agent's analysis.
-
-## Project Structure
-
-```
-.
-├── dashboard.py           # Streamlit web interface
-├── fantasy_agent.py       # Core logic for player evaluation and transfer analysis
-├── fantasy_scrapper.py    # Scrapes futbolfantasy.com for qualitative data
-├── download_pipeline.py   # Fetches and saves all data from the La Liga API
-├── run.sh                 # Main execution script
-├── requirements.txt       # Python dependencies
-├── name_mapping.json      # (User-created) Maps player names to scraper slugs
-├── .env                   # (User-created) API credentials
-├── .gitignore             # Ignores downloaded data, logs, and .env
-├── scrapper/              # (Auto-generated) Cache for web scraper
-├── market/                # (Auto-generated) Downloaded market data
-├── players/               # (Auto-generated) Downloaded player data
-├── equipos/               # (Auto-generated) Downloaded team data
-└── ...                    # Other generated data directories
-```

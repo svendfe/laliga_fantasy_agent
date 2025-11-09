@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 import logging
 from typing import Dict
+from pathlib import Path
 
 # Configure logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -19,6 +20,7 @@ URLS = {
     "jefes": "https://api-fantasy.llt-services.com/api/v5/leagues/016644922/ranking?x-lang=en",
     "calendar": "https://api-fantasy.llt-services.com/api/v3/calendar?weekNumber="
 }
+DATA_DIR = Path("data")
 
 # Helper Functions
 def make_request(method: str, url: str, headers: Dict[str, str], **kwargs) -> Dict:
@@ -32,8 +34,9 @@ def make_request(method: str, url: str, headers: Dict[str, str], **kwargs) -> Di
         raise
 
 def ensure_directory_exists(directory: str):
-    """Ensure a directory exists."""
-    os.makedirs(directory, exist_ok=True)
+    """Ensure a directory exists inside the data folder."""
+    data_directory = DATA_DIR / directory
+    os.makedirs(data_directory, exist_ok=True)
 
 # Authorization
 def get_autorization_headers() -> Dict[str, str]:
@@ -69,9 +72,10 @@ def download_current_market(headers: Dict[str, str]):
     data = make_request("GET", URLS["current_market"], headers=headers)
     current_date = datetime.now().strftime("%Y%m%d")
     ensure_directory_exists("market")
-    with open(f"market/market_{current_date}.json", "w", encoding="utf-8") as f:
+    file_path = DATA_DIR / f"market/market_{current_date}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
-    logger.info(f"Current market data saved to market/market_{current_date}.json")
+    logger.info(f"Current market data saved to {file_path}")
 
 def download_all_players(headers: Dict[str, str]):
     """Download all players data."""
@@ -79,9 +83,10 @@ def download_all_players(headers: Dict[str, str]):
     data = make_request("GET", URLS["all_players"], headers=headers)
     current_date = datetime.now().strftime("%Y%m%d")
     ensure_directory_exists("players")
-    with open(f"players/players_{current_date}.json", "w", encoding="utf-8") as f:
+    file_path = DATA_DIR / f"players/players_{current_date}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
-    logger.info(f"All players data saved to players/players_{current_date}.json")
+    logger.info(f"All players data saved to {file_path}")
 
 def download_team(id_team: int, nombre_jefe: str, headers: Dict[str, str]):
     """Download data for a specific team."""
@@ -90,23 +95,26 @@ def download_team(id_team: int, nombre_jefe: str, headers: Dict[str, str]):
     data = make_request("GET", url_team, headers=headers)
     current_date = datetime.now().strftime("%Y%m%d")
     ensure_directory_exists("equipos")
-    with open(f"equipos/{nombre_jefe}_{current_date}.json", "w", encoding="utf-8") as f:
+    file_path = DATA_DIR / f"equipos/{nombre_jefe}_{current_date}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
-    logger.info(f"Team data for {nombre_jefe} saved to equipos/{nombre_jefe}_{current_date}.json")
+    logger.info(f"Team data for {nombre_jefe} saved to {file_path}")
 
 def download_team_formation(id_team: int, nombre_jefe: str, headers: Dict[str, str]):
     """Download formation data for a specific team."""
     logger.info(f"Downloading formation for team {nombre_jefe} (ID: {id_team})...")
-    with open("current_week.json", "r", encoding="utf-8") as f:
+    week_file_path = DATA_DIR / "current_week.json"
+    with open(week_file_path, "r", encoding="utf-8") as f:
         current_week_data = json.load(f)
     previous_week = current_week_data.get("previousWeek")
 
     url_team_formation = f"https://api-fantasy.llt-services.com/api/v4/teams/{id_team}/lineup/week/{previous_week}?x-lang=en"
     data = make_request("GET", url_team_formation, headers=headers)
     ensure_directory_exists("formaciones")
-    with open(f"formaciones/{nombre_jefe}_{previous_week}.json", "w", encoding="utf-8") as f:
+    file_path = DATA_DIR / f"formaciones/{nombre_jefe}_{previous_week}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
-    logger.info(f"Formation for {nombre_jefe} saved to formaciones/{nombre_jefe}_{previous_week}.json")
+    logger.info(f"Formation for {nombre_jefe} saved to {file_path}")
 
 def download_all_teams(headers: Dict[str, str]):
     """Download all teams data."""
@@ -114,9 +122,10 @@ def download_all_teams(headers: Dict[str, str]):
     data = make_request("GET", URLS["jefes"], headers=headers)
     current_date = datetime.now().strftime("%Y%m%d")
     ensure_directory_exists("jefes")
-    with open(f"jefes/jefes_{current_date}.json", "w", encoding="utf-8") as f:
+    file_path = DATA_DIR / f"jefes/jefes_{current_date}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
-    logger.info(f"Team rankings saved to jefes/jefes_{current_date}.json")
+    logger.info(f"Team rankings saved to {file_path}")
 
     for jefe in data:
         id_jefe = jefe['team']['id']
@@ -129,9 +138,10 @@ def download_current_week(headers: Dict[str, str]):
     logger.info("Downloading current week data...")
     data = make_request("GET", URLS["current_week"], headers=headers)
     current_week = data.get("weekNumber")
-    with open(f"current_week.json", "w", encoding="utf-8") as f:
+    file_path = DATA_DIR / "current_week.json"
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
-    logger.info("Current week data saved to current_week.json")
+    logger.info(f"Current week data saved to {file_path}")
     download_current_calendar(headers, current_week)
 
 def download_current_calendar(headers: Dict[str, str], download_week_num):
@@ -140,17 +150,17 @@ def download_current_calendar(headers: Dict[str, str], download_week_num):
     call_path = f"{URLS['calendar']}{download_week_num}&x-lang=en"
     data = make_request("GET", call_path, headers=headers)
     ensure_directory_exists("calendar")
-    with open(f"calendar/week_{download_week_num}.json", "w", encoding="utf-8") as f:
+    file_path = DATA_DIR / f"calendar/week_{download_week_num}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
-    logger.info(f"Data for week {download_week_num} saved to calendar/week_{download_week_num}.json")
+    logger.info(f"Data for week {download_week_num} saved to {file_path}")
 
 def download_check():
     #TODO check market time
     """Check if we have already downloaded the data today"""
     #check random directory latest date
-    from pathlib import Path
-    directory = Path("market")
+    directory = DATA_DIR / "market"
     if not directory.exists():return True
 
     files = sorted(directory.glob("*.json"), reverse=True)

@@ -1,22 +1,14 @@
-# Ignore everything downloaded
-calendar/
-equipos/
-formaciones/
-jefes/
-market/
-players/
-scrapper/
-current_week.json
-rules.txt
-
-
-# passwords
-.env
-
-# logs
-log.log
-.DS_Store
-
-#cache and test
+# Python
 __pycache__/
+*.pyc
 .vscode/
+
+# Ignore all downloaded data
+data/
+
+# Ignore the scraper cache
+scrapper_cache/
+
+# Ignore environment files
+.env
+.DS_Store

@@ -1,0 +1,382 @@
+General rules
+ 
+
+At the start of a league, regardless of whether it is public or private, each manager is
+assigned a full 14-strong squad and a budget of €100m. Should you receive a team with a
+market value that is considerably lower than the calculated average, you will be assigned a
+bigger budget so as to ensure that all players start on an equal footing. This additional
+budget is calculated by using specific formulas and criteria that are based on the average
+market value of LALIGA players, and if the value of your team is lower than the calculated
+amount, you will receive the difference between the two.
+The additional sum that you receive depends on the market value of the players on that
+particular day and not on the value of the teams managed by the rest of the managers in the
+league. For further information on how this compensation sum is calculated, please contact
+us via the “Support” option on the sidebar menu in the app.
+Player statuses (for example, 'doubt' or 'injured') are provided by LALIGA, with this information updated on a daily basis. This data is intended to offer guidance and under no circumstances determines whether a player will player or not.
+During the course of the LaLiga season, players may change positions and/or teams. This information will be updated in the game on the basis of the information provided by LALIGA.
+ 
+
+Points system
+The winning manager of each league is determined by the highest number of points at the end of the season. In case of a tie, the manager with the highest Team Value will determine the tiebreaker.
+Prior to the start of each matchday, the game will register the line-up and information saved by each manager. The dates of the start and end of each matchday can be consulted via the Calendar page. These dates are subject to changes made by LALIGA. We recommend that your team is ready 30 minutes prior to the start of the opening game of the matchday.
+Only the 11 players featuring in your saved line-up will be awarded points.
+If you have a negative balance or do not have 11 players on the pitch when the system registers your saved information, you will not receive the points that your players amass during the course of the matchday.
+Points are calculated on the basis of a series of parameters. A table featuring the points system is displayed below.
+After each matchday, you will receive a reward that recognises the points amassed by your players.
+In the event of a tie when selecting players for inclusion in the Best XI, the player with the lowest market value is included. When there is a tie for the Player of the Matchday, the award goes to the player with the lowest market value.
+ 
+Signings
+There are currently two means by which users can sign players: making transfer bids/direct offers or release-clause swoops.
+
+ 
+Transfer bids
+You cannot submit a bid for a player which is below their market value.
+Bids for players not belonging to any user are processed when the period for which the player has been on the market expires.
+Bids for players not belonging to any user are secret, with the highest bid prevailing. In the event of a tie between several managers, the bid that was submitted first prevails.
+You may receive a bid for one of the players you have up for transfer from the market, with the price based on the player's approximate market value. This bid is withdrawn and updated in each transfer market cycle.
+Offers between users within the same league are valid for a period of three days.
+A player's market value is based on the bids received for that player.
+You may only incur debts of up to 20% of the value of your team.
+ 
+
+Release-clause swoops
+ 
+Player release clauses are calculated as follows:
+
+A player's initial release clause is calculated automatically on the basis of the following guidelines:
+The release clause of a player with a market value below 1M is set at 1M.
+The release clause of a player with a market value above 1M is set at 166% of their market value.
+A player's release clause may never be less than their market value, which is why release clauses are updated according to the player's market value.
+A user wishing to protect their players may increase their release clauses by using money from their budget to a ratio of 2:1. For example, if you wish to increase the release clause of one of your players by 2M, you would need to pay out 1M from your budget.
+ 
+
+ 
+
+Users can buy a player from another manager by paying their release clause. This option guarantees a purchase without giving the original owner any option to reject the offer.
+Release clauses cannot be paid for LaLiga-owned players on the market.
+Users are not allowed to incur debts when making a release-clause swoop or increasing a player's release clause.
+Managers are not allowed to pay a transfer fee that exceeds the player's release clause. A release-clause swoop is based on the value of the player's transfer clause at a given moment in time and, once paid, the manager who buys the player may increase their release clause with money from their budget.
+Following the player purchase, nobody is able to make a release-clause swoop for this player for a period of two weeks. However, the user is able to put the player up for sale. Their sale price will continue to be set by the user and must exceed the player's market value. This means that bids may be placed for this player during this period.
+The window to purchase players by paying their release clause closes 24 hours before a matchday begins and reopens once the matchday starts.
+ 
+
+Scoring system
+PARAMETER
+
+CONDITION
+
+POINTS
+
+Match Played
+
+< 60 min
+
+1
+
+Match Played
+
+> 60 min
+
+2
+
+Goal Goalkeeper / Defender
+
+GK / DF
+
+6
+
+Goal Midfielder
+
+MF
+
+5
+
+Goal Forward
+
+FW
+
+4
+
+Goal Assist
+
+Last pass leading to a goal
+
+3
+
+Assist without Goal
+
+Last pass leading to a clear goal-scoring chance
+
+1
+
+Clean Sheet (Goalkeeper)
+
+Having played > 60 min
+
+4
+
+Clean Sheet (Defender)
+
+Having played > 60 min
+
+3
+
+Clean Sheet (Midfielder)
+
+Having played > 60 min
+
+2
+
+Clean Sheet (Forward)
+
+Having played > 60 min
+
+1
+
+Missed Penalty
+
+Regardless of player's position
+
+-2
+
+Penalty Saved
+
+Goalkeeper intervenes in the save
+
+5
+
+Won Penalty
+
+Regardless of player's position
+
+2
+
+Committed Penalty
+
+Regardless of player's position
+
+-2
+
+Goals Conceded (Goalkeeper/Defender)
+
+EVERY 2
+
+-2
+
+Goals Conceded (Midfielder/Forward)
+
+EVERY 2
+
+-1
+
+Yellow Card
+
+Regardless of player's position
+
+-1
+
+Double Yellow Card
+
+Regardless of player's position
+
+-1
+
+Red Card
+
+Regardless of player's position
+
+-3
+
+Saves (Goalkeeper)
+
+EVERY 2
+
+1
+
+ATTACK BONUS
+
+ 
+
+ 
+
+Shots on Target
+
+EVERY 2
+
+1
+
+Successful Dribbles
+
+EVERY 2
+
+1
+
+Entries into the Box
+
+EVERY 2
+
+1
+
+DEFENSIVE BONUS
+
+ 
+
+ 
+
+Balls Recovered
+
+EVERY 5
+
+1
+
+Clearances
+
+EVERY 3
+
+1
+
+PENALTIES
+
+ 
+
+ 
+
+Lost Balls (Goalkeeper)
+
+EVERY 8
+
+-1
+
+Lost Balls (Defender)
+
+EVERY 8
+
+-1
+
+Lost Balls (Midfielder)
+
+EVERY 10
+
+-1
+
+Lost Balls (Forward)
+
+EVERY 12
+
+-1
+
+ 
+
+DAZN Note
+
+DAZN Points = Positive Statistics - Negative Statistics
+
+DAZN points are purely based on advanced statistics. Each player will have certain data added related to various aspects of the game in which they can have an influence (Goalkeeping/Defensive/Distribution/Offensive), and others will be subtracted to obtain a final score between 0 and 4 points.
+
+Let's break down the common equation for all players:
+
+DAZN Points = Goalkeeping Statistics + Defensive + Distribution + Offensive - Subtracting Statistics.
+
+To calculate these data, the minutes a player has played will be taken into account as a contextual element, with the aim of ensuring that a player's contribution is evaluated proportionally to their time on the field.
+
+Statistics that belong to the player's specific position will have a greater weight in the equation.
+
+Breakdown of statistics by position or field area:
+
+ 
+
+Goalkeeping Statistics
+
+1- Saves: The goalkeeper dives and catches the shot
+
+2- Clearances to a safe zone: The goalkeeper dives and deflects the ball to an area without the danger of a second play.
+
+3- Ball Claimed: The goalkeeper takes possession of the ball by diving to the ground to retrieve a loose ball pursued by a forward.
+
+4- Successful High Claims: The goalkeeper catches a cross.
+
+5- Successful Sweeper Keeper Actions: The goalkeeper leaves their line, collects the ball, and gains possession for their team.
+
+6- Stops: All goalkeeper stops.
+
+Goal kicks and successful throw-ins are excluded from the above algorithm to avoid overrating goalkeepers.
+
+ 
+
+Defensive Statistics
+
+1- Duels Difference: Duels won minus duels lost. A duel is the dispute between two players to gain possession of the ball.
+
+2- Interceptions: Balls stolen from opposing players, resulting in ball recovery.
+
+3- Successful Clearances: When a player under pressure kicks the ball out of the defensive zone and/or out of play.
+
+4- Successful Tackles: Defensive actions on the ground resulting in ball recovery.
+
+5- Ball Recoveries: The player gains possession of a lost ball.
+
+6- Successful One-on-Ones: When two players try to reach the same ball, the player who arrives first is assigned a successful one-on-one, while the other player is assigned a lost one.
+
+ 
+
+Distribution Statistics
+
+1- Difference between touches and losses:
+
+The total sum of a team's ball events minus total possession losses.
+
+2- Successful Passes: All correct passes (excluding throw-ins, goalkeeper kicks, and crosses).
+
+3- Successful Crosses: Crosses originating from corner kicks, open play, and set pieces that reach a teammate.
+
+4- Successful Final Third Passes: The total number of accurate passes that end in the final third of the field (excluding throw-ins, goalkeeper kicks, and crosses).
+
+5- Successful Long Balls: Accurate passes over 35 meters (excluding throw-ins, crosses, goalkeeper kicks).
+
+6- Key Passes: Precise passes that leave a player one-on-one with the goalkeeper.
+
+ 
+
+Offensive Statistics
+
+1- Big Chances Created: A pass that resulted in a clear goal-scoring opportunity, such as a one-on-one or a shot from a few meters away.
+
+2- Touches in the Opponent's Box: The total number of times a player comes into contact with the ball inside the opposing team's penalty area.
+
+3- Successful Dribbles: The total number of dribbles where a player from one team beats an opponent.
+
+4- Goals Scored
+
+5- Match-Winning Goals: The goal that makes the difference. For example, if a team wins 7-0, it would be the goal that made it 1-0, or if it was 4-2, it would be the third goal scored by the winning team. Therefore, it is about keeping track of the score and the last goal that put a team in a winning position.
+
+6- Goal Assists: The player assists by passing the ball to the player who scores the goal.
+
+7- Shots on Target: Those shots that have not been blocked or hit the woodwork but may have been saved on the line by a defending player.
+
+8- Goal-Scoring Opportunities: Includes assists that result in a goal and those that do not.
+
+ 
+
+Negative Statistics
+
+1- Fouls Committed.
+
+2- Yellow Cards Received.
+
+3- Red Card Received.
+
+4- Dribbled Past: The player is dribbled past, so there is no contact.
+
+5- Goals Conceded.
+
+6- Big Chances Missed: Clear goal-scoring opportunities that were not converted into goals.
+
+ 
+
+The metrics of goals, assists, and goals received will affect all players. Depending on the player's position that performs the action, it will add more or less to the final score. Therefore, a goal by a defender will carry more weight than a goal by a midfielder or forward due to its difficulty. Conversely, conceding a goal will penalize a goalkeeper more than a forward on the same team. Lastly, a clean sheet bonus has been included for goalkeepers and defenders who have played more than 35 minutes. All of this will add or subtract from the final score.
+
+The player ratings reflected by the statistics are obtained from OPTA, in real-time during the players' performances in their respective matches. They are subject to reviews in possible controversial cases until the end of the matchday.
+
+The ratings published by DAZN for each player are independent and have no relation to the application.
+
+For every point you earn, you will receive €100,000 in your budget.

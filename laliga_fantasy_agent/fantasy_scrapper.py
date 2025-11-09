@@ -10,7 +10,8 @@ from bs4 import BeautifulSoup, Tag
 
 HEADERS = {"User-Agent": "MyScraper/1.0 (+https://yourdomain.example)"}
 BASE_URL = "https://www.futbolfantasy.com/jugadores/{slug}"
-CACHE_DIR = Path("./scrapper")
+# Use the new cache directory
+CACHE_DIR = Path("./scrapper_cache")
 
 
 class FantasyScraper:

@@ -1,13 +1,5 @@
+beautifulsoup4
+pandas
 python-dotenv
 requests
-json
-typing
-dataclasses
-datetime
-pathlib
-functools
-re
-pathlib
-typing
-bs4
-dotenv
+streamlit
