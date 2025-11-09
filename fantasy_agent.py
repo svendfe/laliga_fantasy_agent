@@ -5,7 +5,7 @@ Analyzes team performance, suggests transfers, and provides fixture analysis
 
 import json
 from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from functools import lru_cache
@@ -17,6 +17,58 @@ from download_pipeline import main as data_downloader
 # ============================================================================
 # DATA MODELS
 # ============================================================================
+@dataclass
+class TeamStats:
+    """Data class for team statistics."""
+    games_played: int = 0
+    goals_scored_home: int = 0
+    goals_against_home: int = 0
+    goals_scored_away: int = 0
+    goals_against_away: int = 0
+    wins_home: int = 0
+    wins_away: int = 0
+    losses_home: int = 0
+    losses_away: int = 0
+    draws_home: int = 0
+    draws_away: int = 0
+
+    @property
+    def total_goals_scored(self) -> int:
+        return self.goals_scored_home + self.goals_scored_away
+
+    @property
+    def total_goals_against(self) -> int:
+        return self.goals_against_home + self.goals_against_away
+
+    @property
+    def total_wins(self) -> int:
+        return self.wins_home + self.wins_away
+
+    @property
+    def total_losses(self) -> int:
+        return self.losses_home + self.losses_away
+
+    @property
+    def total_draws(self) -> int:
+        return self.draws_home + self.draws_away
+
+    @property
+    def points(self) -> int:
+        return self.total_wins * 3 + self.total_draws
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary with computed properties."""
+        base_dict = asdict(self)
+        base_dict.update({
+            'total_goals_scored': self.total_goals_scored,
+            'total_goals_against': self.total_goals_against,
+            'total_wins': self.total_wins,
+            'total_losses': self.total_losses,
+            'total_draws': self.total_draws,
+            'points': self.points,
+            'goal_difference': self.total_goals_scored - self.total_goals_against
+        })
+        return base_dict
 
 @dataclass
 class ScrapedPlayerData:
@@ -278,6 +330,223 @@ class ScraperManager:
         print(f"✅ Enriched {scraped_count} players\n")
         return players
 
+class TeamEvaluator:
+    """
+    Evaluates team performance from match calendar data.
+    Creates statistics for:
+    - Entire season
+    - Last 3 games
+    """
+    
+    MATCH_STATE_FINISHED = 7
+    LAST_N_GAMES = 3
+    
+    def __init__(
+        self, 
+        current_week: int, 
+        evaluator_file: str = 'team_evaluator.json',
+        calendar_dir: str = './calendar'
+    ):
+        """
+        Initialize the team evaluator.
+        
+        Args:
+            current_week: Current week number
+            evaluator_file: Path to the evaluator JSON file
+            calendar_dir: Directory containing week JSON files
+        """
+        self.current_week = current_week
+        self.file_path = Path(evaluator_file)
+        self.calendar_path = Path(calendar_dir)
+        self.evaluator_data = self._load_evaluator_file()
+        self.last_loaded_week = self.evaluator_data.get('last_loaded_week', 1)
+        
+    def _load_evaluator_file(self) -> Dict:
+        """Load or create the evaluator JSON file."""
+        if not self.file_path.exists():
+            print(f"⚠️  '{self.file_path}' not found. Creating new file.")
+            return {'last_loaded_week': 0, 'season_overall': {}, 'last_3_games': {}}
+        
+        try:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if not content:
+                    print(f"⚠️  '{self.file_path}' is empty. Initializing with default data.")
+                    return {'last_loaded_week': 0, 'season_overall': {}, 'last_3_games': {}}
+                return json.loads(content)
+        except json.JSONDecodeError as e:
+            print(f"⚠️  Invalid JSON in '{self.file_path}': {e}. Initializing with default data.")
+            return {'last_loaded_week': 0, 'season_overall': {}, 'last_3_games': {}}
+        except Exception as e:
+            print(f"❌ Error reading '{self.file_path}': {e}")
+            return {'last_loaded_week': 0, 'season_overall': {}, 'last_3_games': {}}
+
+    def _load_week_matches(self, week: int) -> Optional[list]:
+        """Load match data for a specific week."""
+        week_files = list(self.calendar_path.glob(f'week_{week}.json'))
+        
+        if not week_files:
+            print(f"⚠️  No file found for week {week}")
+            return None
+        
+        try:
+            with open(week_files[0], 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"❌ Error loading week {week}: {e}")
+            return None
+
+    def _process_match(self, match: Dict, team_stats: Dict[str, TeamStats]) -> None:
+        """Process a single match and update team statistics."""
+        # Validate match data
+        if match.get('matchState') != self.MATCH_STATE_FINISHED:
+            return
+        
+        local_score = match.get('localScore')
+        visitor_score = match.get('visitorScore')
+        
+        if local_score is None or visitor_score is None:
+            return
+        
+        # Get team names
+        local_team = match['local']['name']
+        visitor_team = match['visitor']['name']
+        
+        # Initialize teams if not present
+        for team in [local_team, visitor_team]:
+            if team not in team_stats:
+                team_stats[team] = TeamStats()
+        
+        # Update games played
+        team_stats[local_team].games_played += 1
+        team_stats[visitor_team].games_played += 1
+        
+        # Update goals
+        team_stats[local_team].goals_scored_home += local_score
+        team_stats[local_team].goals_against_home += visitor_score
+        team_stats[visitor_team].goals_scored_away += visitor_score
+        team_stats[visitor_team].goals_against_away += local_score
+        
+        # Update win/loss/draw records
+        if local_score > visitor_score:  # Home win
+            team_stats[local_team].wins_home += 1
+            team_stats[visitor_team].losses_away += 1
+        elif local_score < visitor_score:  # Away win
+            team_stats[local_team].losses_home += 1
+            team_stats[visitor_team].wins_away += 1
+        else:  # Draw
+            team_stats[local_team].draws_home += 1
+            team_stats[visitor_team].draws_away += 1
+
+    def _calculate_stats(self, start_week: int, end_week: int) -> Dict[str, Dict]:
+        """
+        Calculate team statistics for a range of weeks.
+        
+        Args:
+            start_week: Starting week (inclusive)
+            end_week: Ending week (exclusive)
+        
+        Returns:
+            Dictionary mapping team names to their statistics
+        """
+        team_stats: Dict[str, TeamStats] = {}
+        
+        for week in range(start_week, end_week):
+            matches = self._load_week_matches(week)
+            if matches is None:
+                continue
+            
+            for match in matches:
+                self._process_match(match, team_stats)
+        
+        # Convert TeamStats objects to dictionaries
+        return {team: stats.to_dict() for team, stats in team_stats.items()}
+
+    def update(self) -> bool:
+        """
+        Update statistics for both season overall and last 3 games.
+        
+        Returns:
+            True if update was successful, False otherwise
+        """
+        if self.current_week <= self.last_loaded_week:
+            print(f"ℹ️  Already up to date (current week: {self.current_week}, "
+                  f"last loaded: {self.last_loaded_week})")
+            return True
+        
+        print(f"📊 Updating statistics from week {self.last_loaded_week + 1} "
+              f"to {self.current_week}...")
+        
+        # Calculate season overall stats (incremental update)
+        season_stats = self._calculate_stats(self.last_loaded_week + 1, self.current_week + 1)
+        
+        # Merge with existing season stats
+        if 'season_overall' not in self.evaluator_data:
+            self.evaluator_data['season_overall'] = {}
+        
+        for team, stats in season_stats.items():
+            if team not in self.evaluator_data['season_overall']:
+                self.evaluator_data['season_overall'][team] = stats
+            else:
+                # Merge stats (add new values to existing)
+                existing = self.evaluator_data['season_overall'][team]
+                for key, value in stats.items():
+                    if isinstance(value, (int, float)):
+                        existing[key] = existing.get(key, 0) + value
+        
+        # Calculate last N games stats (always recalculate)
+        start_week = max(1, self.current_week - self.LAST_N_GAMES + 1)
+        self.evaluator_data['last_3_games'] = self._calculate_stats(
+            start_week, 
+            self.current_week + 1
+        )
+        
+        # Update last loaded week
+        self.evaluator_data['last_loaded_week'] = self.current_week
+        
+        # Save to file
+        return self._save()
+
+    def _save(self) -> bool:
+        """Save evaluator data to JSON file."""
+        try:
+            with open(self.file_path, 'w', encoding='utf-8') as f:
+                json.dump(self.evaluator_data, f, ensure_ascii=False, indent=2)
+            print(f"✅ Successfully saved updates to '{self.file_path}'")
+            return True
+        except Exception as e:
+            print(f"❌ Error saving to '{self.file_path}': {e}")
+            return False
+
+    def get_team_stats(self, team_name: str, period: str = 'season_overall') -> Optional[Dict]:
+        """
+        Get statistics for a specific team.
+        
+        Args:
+            team_name: Name of the team
+            period: Either 'season_overall' or 'last_3_games'
+        
+        Returns:
+            Team statistics dictionary or None if not found
+        """
+        return self.evaluator_data.get(period, {}).get(team_name)
+
+    def get_rankings(self, period: str = 'season_overall') -> list:
+        """
+        Get team rankings sorted by points.
+        
+        Args:
+            period: Either 'season_overall' or 'last_3_games'
+        
+        Returns:
+            List of tuples (team_name, stats) sorted by points
+        """
+        stats = self.evaluator_data.get(period, {})
+        return sorted(
+            stats.items(), 
+            key=lambda x: (x[1].get('points', 0), x[1].get('goal_difference', 0)),
+            reverse=True
+        )
 
 # ============================================================================
 # DATA LOADING
@@ -511,38 +780,266 @@ class DataLoader:
 # ============================================================================
 # FIXTURE ANALYSIS
 # ============================================================================
-
-class FixtureAnalyzer:
-    """Analyzes fixture difficulty and schedules"""
+class TeamStrengthCalculator:
+    """
+    Calculates dynamic team strengths from evaluator data.
+    Supports multiple data sources: current season, recent form, last season.
+    """
     
-    # Team strength ratings (attack, defense)
-    TEAM_STRENGTHS = {
-        "Real Madrid": {"attack": 5.0, "defense": 4.5},
-        "FC Barcelona": {"attack": 4.8, "defense": 4.2},
-        "Atlético de Madrid": {"attack": 4.0, "defense": 4.8},
-        "Athletic Club": {"attack": 4.2, "defense": 4.0},
-        "Real Sociedad": {"attack": 4.0, "defense": 3.8},
-        "Villarreal CF": {"attack": 3.8, "defense": 3.8},
-        "Real Betis": {"attack": 3.8, "defense": 3.5},
-        "Valencia CF": {"attack": 3.5, "defense": 3.5},
-        "Sevilla FC": {"attack": 3.5, "defense": 3.8},
-        "Girona FC": {"attack": 3.5, "defense": 3.3},
-        "RC Celta": {"attack": 3.5, "defense": 3.0},
-        "RCD Mallorca": {"attack": 3.3, "defense": 3.5},
-        "Rayo Vallecano": {"attack": 3.3, "defense": 3.2},
-        "C.A. Osasuna": {"attack": 3.2, "defense": 3.5},
-        "Getafe CF": {"attack": 2.8, "defense": 3.8},
-        "UD Las Palmas": {"attack": 3.0, "defense": 2.8},
-        "Deportivo Alavés": {"attack": 2.8, "defense": 3.0},
-        "RCD Espanyol": {"attack": 2.8, "defense": 3.0},
-        "CD Leganés": {"attack": 2.5, "defense": 3.2},
-        "Real Valladolid": {"attack": 2.5, "defense": 2.8},
+    # Weights for different metrics
+    WEIGHTS = {
+        'goals_scored': 0.3,
+        'goals_against': 0.3,
+        'win_rate': 0.25,
+        'points_per_game': 0.15
     }
     
-    DEFAULT_STRENGTH = {"attack": 3.0, "defense": 3.0}
+    # Form weights: more recent = more important
+    FORM_WEIGHTS = {
+        'last_3_games': 0.6,
+        'season_overall': 0.3,
+        'last_season': 0.1
+    }
     
-    def __init__(self, fixtures: List[Fixture]):
+    def __init__(self, evaluator_file: str = 'team_evaluator.json'):
+        """Initialize with evaluator data."""
+        self.evaluator_file = Path(evaluator_file)
+        self.evaluator_data = self._load_evaluator_data()
+        self._strength_cache = {}
+    
+    def _load_evaluator_data(self) -> Dict:
+        """Load team evaluator data."""
+        if not self.evaluator_file.exists():
+            print(f"⚠️  Evaluator file '{self.evaluator_file}' not found")
+            return {}
+        
+        try:
+            with open(self.evaluator_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"❌ Error loading evaluator data: {e}")
+            return {}
+    
+    def _normalize_score(self, value: float, min_val: float, max_val: float) -> float:
+        """Normalize a value to 1-5 scale."""
+        if max_val == min_val:
+            return 3.0
+        normalized = 1 + 4 * (value - min_val) / (max_val - min_val)
+        return max(1.0, min(5.0, normalized))
+    
+    def _convert_last_season_ranking(self, ranking: int) -> Dict[str, float]:
+        """
+        Convert last season ranking to strength estimate.
+        Lower ranking = stronger team.
+        
+        Args:
+            ranking: Team's final position (1-20)
+        
+        Returns:
+            Estimated attack/defense ratings
+        """
+        # Convert ranking (1-20) to strength (5.0-2.5)
+        # 1st place = 5.0, 20th place = 2.5
+        strength = 5.5 - (ranking * 0.15)
+        strength = max(2.5, min(5.0, strength))
+        
+        return {'attack': round(strength, 2), 'defense': round(strength, 2)}
+    
+    def _calculate_attack_defense(
+        self,
+        team_stats: Dict,
+        league_stats: Dict
+    ) -> Tuple[float, float]:
+        """
+        Calculate attack and defense ratings for a team.
+        
+        Args:
+            team_stats: Individual team statistics
+            league_stats: All teams' statistics for normalization
+        
+        Returns:
+            Tuple of (attack_rating, defense_rating) on 1-5 scale
+        """
+        # Check if team_stats is a dict with the required structure
+        if not isinstance(team_stats, dict) or team_stats.get('games_played', 0) == 0:
+            return 3.0, 3.0
+        
+        games = team_stats['games_played']
+        
+        # Calculate per-game metrics
+        goals_scored_pg = team_stats['total_goals_scored'] / games
+        goals_against_pg = team_stats['total_goals_against'] / games
+        win_rate = team_stats['total_wins'] / games
+        points_pg = team_stats['points'] / games
+        
+        # Get league ranges for normalization
+        all_goals_scored = [s['total_goals_scored'] / s['games_played'] 
+                           for s in league_stats.values() 
+                           if isinstance(s, dict) and s.get('games_played', 0) > 0]
+        all_goals_against = [s['total_goals_against'] / s['games_played'] 
+                            for s in league_stats.values() 
+                            if isinstance(s, dict) and s.get('games_played', 0) > 0]
+        all_win_rates = [s['total_wins'] / s['games_played'] 
+                        for s in league_stats.values() 
+                        if isinstance(s, dict) and s.get('games_played', 0) > 0]
+        all_points_pg = [s['points'] / s['games_played'] 
+                        for s in league_stats.values() 
+                        if isinstance(s, dict) and s.get('games_played', 0) > 0]
+        
+        # Normalize individual components
+        attack_goals = self._normalize_score(
+            goals_scored_pg, 
+            min(all_goals_scored), 
+            max(all_goals_scored)
+        )
+        attack_wins = self._normalize_score(
+            win_rate,
+            min(all_win_rates),
+            max(all_win_rates)
+        )
+        attack_points = self._normalize_score(
+            points_pg,
+            min(all_points_pg),
+            max(all_points_pg)
+        )
+        
+        # Defense: lower goals against = better (invert scale)
+        defense_goals = self._normalize_score(
+            max(all_goals_against) + min(all_goals_against) - goals_against_pg,
+            min(all_goals_against),
+            max(all_goals_against)
+        )
+        defense_wins = attack_wins  # Wins contribute to both
+        defense_points = attack_points  # Points contribute to both
+        
+        # Weighted combination
+        attack = (
+            attack_goals * self.WEIGHTS['goals_scored'] +
+            attack_wins * self.WEIGHTS['win_rate'] +
+            attack_points * self.WEIGHTS['points_per_game']
+        ) / (self.WEIGHTS['goals_scored'] + 
+             self.WEIGHTS['win_rate'] + 
+             self.WEIGHTS['points_per_game'])
+        
+        defense = (
+            defense_goals * self.WEIGHTS['goals_against'] +
+            defense_wins * self.WEIGHTS['win_rate'] +
+            defense_points * self.WEIGHTS['points_per_game']
+        ) / (self.WEIGHTS['goals_against'] + 
+             self.WEIGHTS['win_rate'] + 
+             self.WEIGHTS['points_per_game'])
+        
+        return round(attack, 2), round(defense, 2)
+    
+    def calculate_team_strength(
+        self,
+        team_name: str,
+        use_form: bool = True
+    ) -> Dict[str, float]:
+        """
+        Calculate dynamic team strength ratings.
+        
+        Args:
+            team_name: Name of the team
+            use_form: If True, weight recent form more heavily
+        
+        Returns:
+            Dictionary with 'attack' and 'defense' ratings (1-5 scale)
+        """
+        cache_key = f"{team_name}_{use_form}"
+        if cache_key in self._strength_cache:
+            return self._strength_cache[cache_key]
+        
+        if not self.evaluator_data:
+            return {'attack': 3.0, 'defense': 3.0}
+        
+        if use_form:
+            # Combine multiple data sources with form weights
+            strengths = []
+            total_weight = 0
+            
+            for period, weight in self.FORM_WEIGHTS.items():
+                period_data = self.evaluator_data.get(period, {})
+                if team_name in period_data:
+                    team_data = period_data[team_name]
+                    
+                    # Handle last_season data (just rankings as integers)
+                    if period == 'last_season' and isinstance(team_data, int):
+                        strength_dict = self._convert_last_season_ranking(team_data)
+                        attack = strength_dict['attack']
+                        defense = strength_dict['defense']
+                    else:
+                        # Normal calculation for season_overall and last_3_games
+                        attack, defense = self._calculate_attack_defense(
+                            team_data,
+                            period_data
+                        )
+                    
+                    strengths.append((attack, defense, weight))
+                    total_weight += weight
+            
+            if not strengths:
+                result = {'attack': 3.0, 'defense': 3.0}
+            else:
+                avg_attack = sum(a * w for a, d, w in strengths) / total_weight
+                avg_defense = sum(d * w for a, d, w in strengths) / total_weight
+                result = {
+                    'attack': round(avg_attack, 2),
+                    'defense': round(avg_defense, 2)
+                }
+        else:
+            # Use only season overall data
+            season_data = self.evaluator_data.get('season_overall', {})
+            if team_name in season_data:
+                attack, defense = self._calculate_attack_defense(
+                    season_data[team_name],
+                    season_data
+                )
+                result = {'attack': attack, 'defense': defense}
+            else:
+                result = {'attack': 3.0, 'defense': 3.0}
+        
+        self._strength_cache[cache_key] = result
+        return result
+    
+    def get_all_team_strengths(self, use_form: bool = True) -> Dict[str, Dict]:
+        """Get strength ratings for all teams."""
+        season_data = self.evaluator_data.get('season_overall', {})
+        return {
+            team: self.calculate_team_strength(team, use_form)
+            for team in season_data.keys()
+        }
+    
+    def clear_cache(self):
+        """Clear the strength calculation cache."""
+        self._strength_cache.clear()
+
+class FixtureAnalyzer:
+    """
+    Analyzes fixture difficulty and schedules using dynamic team strengths.
+    """
+    
+    def __init__(
+        self,
+        fixtures: List[Fixture],
+        strength_calculator: Optional[TeamStrengthCalculator] = None,
+        evaluator_file: str = 'team_evaluator.json'
+    ):
+        """
+        Initialize fixture analyzer.
+        
+        Args:
+            fixtures: List of Fixture objects
+            strength_calculator: Optional pre-initialized calculator
+            evaluator_file: Path to evaluator JSON file
+        """
         self.fixtures = fixtures
+        self.strength_calculator = strength_calculator or TeamStrengthCalculator(evaluator_file)
+        self.default_strength = {'attack': 3.0, 'defense': 3.0}
+    
+    def get_team_strength(self, team_name: str) -> Dict[str, float]:
+        """Get strength ratings for a team."""
+        return self.strength_calculator.calculate_team_strength(team_name)
     
     def get_fixture_difficulty(
         self,
@@ -550,7 +1047,17 @@ class FixtureAnalyzer:
         team_name: str,
         next_n_weeks: int = 3
     ) -> List[Dict]:
-        """Calculate fixture difficulty for a team"""
+        """
+        Calculate fixture difficulty for a team.
+        
+        Args:
+            team_id: Team ID
+            team_name: Team name
+            next_n_weeks: Number of upcoming fixtures to analyze
+        
+        Returns:
+            List of fixture dictionaries with difficulty ratings
+        """
         team_fixtures = []
         
         for fixture in self.fixtures:
@@ -569,7 +1076,7 @@ class FixtureAnalyzer:
                 'opponent': opponent,
                 'is_home': is_home,
                 'difficulty': difficulty,
-                'date': fixture.match_date
+                'difficulty_rating': self._difficulty_label(difficulty)
             })
             
             if len(team_fixtures) >= next_n_weeks:
@@ -582,34 +1089,63 @@ class FixtureAnalyzer:
         opponent: str,
         is_home: bool
     ) -> float:
-        """Calculate difficulty score for a match (1-5 scale)"""
-        opp_strength = self.TEAM_STRENGTHS.get(
-            opponent,
-            self.DEFAULT_STRENGTH
-        )
+        """
+        Calculate difficulty score for a match (1-5 scale).
         
+        Args:
+            opponent: Opponent team name
+            is_home: Whether playing at home
+        
+        Returns:
+            Difficulty score (1=easiest, 5=hardest)
+        """
+        opp_strength = self.get_team_strength(opponent)
+        
+        # Average of attack and defense strength
         avg_opponent_strength = (
             opp_strength['attack'] + opp_strength['defense']
         ) / 2
         
-        # Invert: stronger opponent = higher difficulty
-        difficulty = 6 - avg_opponent_strength
+        # Opponent strength directly translates to difficulty
+        difficulty = avg_opponent_strength
         
-        # Home advantage
+        # Home advantage adjustment
         if is_home:
-            difficulty -= 0.5
+            difficulty -= 0.5  # Home games are easier
         else:
-            difficulty += 0.2
+            difficulty += 0.3  # Away games are harder
         
         # Clamp to 1-5 range
-        return max(1, min(5, difficulty))
+        return max(1.0, min(5.0, round(difficulty, 2)))
+    
+    def _difficulty_label(self, difficulty: float) -> str:
+        """Convert difficulty score to label."""
+        if difficulty < 2.0:
+            return "Very Easy"
+        elif difficulty < 3.0:
+            return "Easy"
+        elif difficulty < 3.5:
+            return "Medium"
+        elif difficulty < 4.5:
+            return "Hard"
+        else:
+            return "Very Hard"
     
     def calculate_fixture_score(
         self,
         player: Player,
         next_weeks: int = 3
     ) -> float:
-        """Calculate weighted fixture difficulty score (2-10 scale)"""
+        """
+        Calculate weighted fixture difficulty score (2-10 scale).
+        
+        Args:
+            player: Player object with team info
+            next_weeks: Number of weeks to analyze
+        
+        Returns:
+            Weighted average difficulty score (2-10 scale)
+        """
         fixtures = self.get_fixture_difficulty(
             player.team_id,
             player.team_name,
@@ -620,15 +1156,85 @@ class FixtureAnalyzer:
             return 5.0
         
         # Weight more recent fixtures higher
-        weights = [1.0, 0.8, 0.6][:len(fixtures)]
+        weights = [1.0, 0.8, 0.6, 0.4, 0.2][:len(fixtures)]
         scores = [f['difficulty'] * 2 for f in fixtures]  # Scale to 2-10
         
         weighted_avg = sum(
             s * w for s, w in zip(scores, weights)
         ) / sum(weights)
         
-        return weighted_avg
-
+        return round(weighted_avg, 2)
+    
+    def compare_fixtures(
+        self,
+        team_ids: List[Tuple[str, str]],
+        next_weeks: int = 3
+    ) -> List[Dict]:
+        """
+        Compare fixture difficulty across multiple teams.
+        
+        Args:
+            team_ids: List of (team_id, team_name) tuples
+            next_weeks: Number of weeks to analyze
+        
+        Returns:
+            List of team fixture analyses sorted by difficulty (easiest first)
+        """
+        comparisons = []
+        
+        for team_id, team_name in team_ids:
+            fixtures = self.get_fixture_difficulty(team_id, team_name, next_weeks)
+            avg_difficulty = sum(f['difficulty'] for f in fixtures) / len(fixtures) if fixtures else 3.0
+            
+            comparisons.append({
+                'team_id': team_id,
+                'team_name': team_name,
+                'fixtures': fixtures,
+                'avg_difficulty': round(avg_difficulty, 2),
+                'total_home': sum(1 for f in fixtures if f['is_home']),
+                'total_away': sum(1 for f in fixtures if not f['is_home'])
+            })
+        
+        return sorted(comparisons, key=lambda x: x['avg_difficulty'])
+    
+    def get_best_fixture_runs(
+        self,
+        min_weeks: int = 3,
+        max_difficulty: float = 3.0
+    ) -> List[Dict]:
+        """
+        Find teams with favorable fixture runs.
+        
+        Args:
+            min_weeks: Minimum number of weeks in a run
+            max_difficulty: Maximum average difficulty threshold
+        
+        Returns:
+            List of teams with good fixture runs
+        """
+        # Get all unique teams from fixtures
+        teams = {}
+        for fixture in self.fixtures:
+            teams[fixture.home_team_id] = fixture.home_team_name
+            teams[fixture.away_team_id] = fixture.away_team_name
+        
+        good_runs = []
+        
+        for team_id, team_name in teams.items():
+            fixtures = self.get_fixture_difficulty(team_id, team_name, min_weeks)
+            
+            if len(fixtures) >= min_weeks:
+                avg_difficulty = sum(f['difficulty'] for f in fixtures) / len(fixtures)
+                
+                if avg_difficulty <= max_difficulty:
+                    good_runs.append({
+                        'team_id': team_id,
+                        'team_name': team_name,
+                        'avg_difficulty': round(avg_difficulty, 2),
+                        'fixtures': fixtures
+                    })
+        
+        return sorted(good_runs, key=lambda x: x['avg_difficulty'])
 
 # ============================================================================
 # PLAYER EVALUATION
@@ -894,8 +1500,8 @@ class FantasyAgent:
                 self.scraper_manager.enrich_player(player)
         
         self.all_players = self.loader.load_all_players()
-
         fixtures = self.loader.load_calendar(self.current_week)
+        TeamEvaluator(self.current_week).update()
         self.fixture_analyzer = FixtureAnalyzer(fixtures)
         self.evaluator = PlayerEvaluator(self.fixture_analyzer)
         

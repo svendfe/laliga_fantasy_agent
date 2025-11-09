@@ -150,6 +150,11 @@ class FantasyScraper:
         """Parse percentage from text and return as float (0-1)."""
         match = re.search(r'(\d+(?:\.\d+)?)\s*%', text)
         if not match:
+            if text == "SÍ":
+                return 1.0
+            else:
+                print(f"⚠️  Failed to parse percentage: {text}")
+                return 0
             return 0
         return float(match.group(1)) / 100.0
     
@@ -177,7 +182,7 @@ class FantasyScraper:
 
 
 def main():
-    scraper = FantasyScraper("fernando-calero")
+    scraper = FantasyScraper("marcus-rashford")
     player_info = scraper.get_player_info()
     print(json.dumps(player_info, indent=2, ensure_ascii=False))
 
